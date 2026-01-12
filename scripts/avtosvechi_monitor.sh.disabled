@@ -1,0 +1,295 @@
+#!/bin/bash
+# УМНЫЙ МОНИТОРИНГ AVTOSVECHI С АЛЕРТАМИ
+# Версия: 2.0
+
+# Конфигурация
+TELEGRAM_BOT_TOKEN="8206084673:AAHNu7tEEm7FTNMXSz63nhVIkzjYYSg2p_w"
+TELEGRAM_CHAT_ID="6838202455"
+LOG_FILE="/home/oleg/avtosvechi_monitor_$(date +%Y%m%d).log"
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Цвета для логов
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Функция отправки в Telegram
+send_telegram() {
+    local message="$1"
+    curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+        -d chat_id="${TELEGRAM_CHAT_ID}" \
+        -d text="${message}" \
+        -d parse_mode="HTML" \
+        > /dev/null 2>&1
+}
+
+# Функция логирования
+log() {
+    echo "[$TIMESTAMP] $1" >> "$LOG_FILE"
+    echo -e "$2$1${NC}"
+}
+
+# Начало проверки
+log "🚀 Запуск мониторинга AVTOSVECHI" "$BLUE"
+log "Время: $TIMESTAMP" "$BLUE"
+
+# Массивы для сбора проблем
+CRITICAL_ERRORS=()
+WARNINGS=()
+HEALTHY_SERVICES=()
+
+# 1. ПРОВЕРКА КРИТИЧЕСКИХ СЕРВИСОВ
+log "" "$NC"
+log "1. КРИТИЧЕСКИЕ СЕРВИСЫ:" "$BLUE"
+
+check_critical() {
+    local name="$1"
+    local container="$2"
+    
+    if docker ps --filter "name=$container" --format "{{.Status}}" | grep -q "Up"; then
+        log "   ✅ $name: работает" "$GREEN"
+        HEALTHY_SERVICES+=("$name")
+        return 0
+    else
+        log "   🔴 $name: НЕ РАБОТАЕТ" "$RED"
+        CRITICAL_ERRORS+=("$name")
+        return 1
+    fi
+}
+
+check_critical "Redis" "avtosvechi_redis"
+check_critical "Telegram Bot" "telegram-bot-fixed"
+check_critical "Докер-демон" "dummy"  # Проверка докера
+if ! docker info > /dev/null 2>&1; then
+    log "   🔴 Docker: НЕ РАБОТАЕТ" "$RED"
+    CRITICAL_ERRORS+=("Docker")
+else
+    log "   ✅ Docker: работает" "$GREEN"
+    HEALTHY_SERVICES+=("Docker")
+fi
+
+# 2. ПРОВЕРКА ВАЖНЫХ СЕРВИСОВ
+log "" "$NC"
+log "2. ВАЖНЫЕ СЕРВИСЫ:" "$BLUE"
+
+check_important() {
+    local name="$1"
+    local container="$2"
+    
+    if docker ps --filter "name=$container" --format "{{.Status}}" | grep -q "Up"; then
+        log "   ✅ $name: работает" "$GREEN"
+        HEALTHY_SERVICES+=("$name")
+        return 0
+    else
+        log "   🟡 $name: не работает" "$YELLOW"
+        WARNINGS+=("$name")
+        return 1
+    fi
+}
+
+check_important "Prometheus" "autoshop_prometheus"
+check_important "Grafana" "autoshop_grafana"
+check_important "AlertManager" "autoshop_alertmanager"
+check_important "Telegram Proxy" "telegram-proxy-1"
+
+# 3. ПРОВЕРКА ДОПОЛНИТЕЛЬНЫХ СЕРВИСОВ
+log "" "$NC"
+log "3. ДОПОЛНИТЕЛЬНЫЕ СЕРВИСЫ:" "$BLUE"
+
+check_optional() {
+    local name="$1"
+    local container="$2"
+    
+    if docker ps --filter "name=$container" --format "{{.Status}}" | grep -q "Up"; then
+        log "   ✅ $name: работает" "$GREEN"
+        return 0
+    else
+        log "   ⚪ $name: не запущен" "$NC"
+        return 1
+    fi
+}
+
+check_optional "Node Exporter" "adf2e6e24025_autoshop_node_exporter"
+check_optional "cAdvisor" "946eb9702fa1_autoshop_cadvisor"
+
+# 4. ПРОВЕРКА ФУНКЦИОНАЛЬНОСТИ
+log "" "$NC"
+log "4. ФУНКЦИОНАЛЬНЫЕ ПРОВЕРКИ:" "$BLUE"
+
+# Проверка Redis
+if docker exec avtosvechi_redis redis-cli ping 2>/dev/null | grep -q PONG; then
+    log "   ✅ Redis: отвечает на ping" "$GREEN"
+else
+    log "   🔴 Redis: НЕ ОТВЕЧАЕТ" "$RED"
+    CRITICAL_ERRORS+=("Redis ping")
+fi
+
+# Проверка Prometheus
+if curl -s --connect-timeout 5 http://localhost:9091/-/healthy > /dev/null 2>&1; then
+    log "   ✅ Prometheus: здоров" "$GREEN"
+else
+    log "   🟡 Prometheus: недоступен" "$YELLOW"
+    WARNINGS+=("Prometheus недоступен")
+fi
+
+# Проверка Grafana
+if curl -s --connect-timeout 5 http://localhost:3000/api/health > /dev/null 2>&1; then
+    log "   ✅ Grafana: работает" "$GREEN"
+else
+    log "   🟡 Grafana: недоступна" "$YELLOW"
+    WARNINGS+=("Grafana недоступна")
+fi
+
+# 5. СТАТИСТИКА СИСТЕМЫ
+log "" "$NC"
+log "5. СТАТИСТИКА СИСТЕМЫ:" "$BLUE"
+
+TOTAL_CONTAINERS=$(docker ps -q | wc -l 2>/dev/null || echo "0")
+RUNNING_CONTAINERS=$(docker ps --filter "status=running" -q | wc -l 2>/dev/null || echo "0")
+RESTARTING_CONTAINERS=$(docker ps --filter "status=restarting" -q | wc -l 2>/dev/null || echo "0")
+FAILED_CONTAINERS=$(docker ps --filter "status=exited" -q | wc -l 2>/dev/null || echo "0")
+
+log "   📊 Контейнеров всего: $TOTAL_CONTAINERS" "$NC"
+log "   ✅ Работающих: $RUNNING_CONTAINERS" "$GREEN"
+
+if [ $RESTARTING_CONTAINERS -gt 0 ]; then
+    log "   🔄 Перезагружающихся: $RESTARTING_CONTAINERS" "$YELLOW"
+    docker ps --filter "status=restarting" --format "     • {{.Names}} ({{.Status}})" >> "$LOG_FILE"
+fi
+
+if [ $FAILED_CONTAINERS -gt 0 ]; then
+    log "   ❌ Упавших: $FAILED_CONTAINERS" "$RED"
+fi
+
+# Ресурсы системы
+MEM_USED=$(free -m | awk 'NR==2{printf "%d", $3}')
+MEM_TOTAL=$(free -m | awk 'NR==2{printf "%d", $2}')
+MEM_PERCENT=$((MEM_USED * 100 / MEM_TOTAL))
+
+CPU_LOAD=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | tr -d ',')
+DISK_USAGE=$(df -h / | awk 'NR==2{print $5}')
+
+log "   💾 Память: ${MEM_USED}MB/${MEM_TOTAL}MB (${MEM_PERCENT}%)" "$NC"
+log "   📈 Нагрузка CPU: $CPU_LOAD" "$NC"
+log "   💿 Диск (/): $DISK_USAGE" "$NC"
+
+# 6. ФОРМИРОВАНИЕ ОТЧЕТА И УВЕДОМЛЕНИЙ
+log "" "$NC"
+log "6. ИТОГОВЫЙ ОТЧЕТ:" "$BLUE"
+
+TOTAL_CRITICAL=${#CRITICAL_ERRORS[@]}
+TOTAL_WARNINGS=${#WARNINGS[@]}
+TOTAL_HEALTHY=${#HEALTHY_SERVICES[@]}
+
+# Логирование итогов
+log "   Критических ошибок: $TOTAL_CRITICAL" "$([ $TOTAL_CRITICAL -gt 0 ] && echo "$RED" || echo "$GREEN")"
+log "   Предупреждений: $TOTAL_WARNINGS" "$([ $TOTAL_WARNINGS -gt 0 ] && echo "$YELLOW" || echo "$GREEN")"
+log "   Работающих сервисов: $TOTAL_HEALTHY" "$GREEN"
+
+# 7. ЛОГИКА УВЕДОМЛЕНИЙ
+if [ $TOTAL_CRITICAL -gt 0 ]; then
+    # КРИТИЧЕСКИЕ ОШИБКИ - немедленное уведомление
+    log "🔴 ОБНАРУЖЕНЫ КРИТИЧЕСКИЕ ОШИБКИ!" "$RED"
+    
+    CRITICAL_LIST=$(printf "• %s\n" "${CRITICAL_ERRORS[@]}")
+    WARNING_LIST=$(printf "• %s\n" "${WARNINGS[@]}")
+    
+    TELEGRAM_MESSAGE="🚨 <b>AVTOSVECHI - КРИТИЧЕСКИЕ ОШИБКИ!</b>
+
+<b>Время:</b> $(date '+%d.%m.%Y %H:%M:%S')
+<b>Сервер:</b> $(hostname)
+<b>IP:</b> $(hostname -I | awk '{print $1}')
+
+<b>🔴 Критические ошибки ($TOTAL_CRITICAL):</b>
+$CRITICAL_LIST
+
+<b>🟡 Предупреждения ($TOTAL_WARNINGS):</b>
+$([ $TOTAL_WARNINGS -gt 0 ] && echo "$WARNING_LIST" || echo "Нет")
+
+<b>📊 Статистика:</b>
+• Контейнеров: $RUNNING_CONTAINERS/$TOTAL_CONTAINERS
+• Память: ${MEM_PERCENT}%
+• Нагрузка: $CPU_LOAD
+
+<b>🚨 ДЕЙСТВИЯ:</b>
+1. Подключиться к серверу
+2. Проверить логи: docker-compose logs
+3. Перезапустить: docker-compose restart
+4. Подробный отчет: $LOG_FILE
+
+<b>🌐 Ссылки:</b>
+• Grafana: http://192.168.1.100:3000
+• Prometheus: http://192.168.1.100:9091"
+    
+    send_telegram "$TELEGRAM_MESSAGE"
+    log "📱 Отправлено критическое уведомление в Telegram" "$RED"
+    exit 1
+    
+elif [ $TOTAL_WARNINGS -gt 0 ]; then
+    # ТОЛЬКО ПРЕДУПРЕЖДЕНИЯ - уведомление без срочности
+    log "🟡 Обнаружены предупреждения" "$YELLOW"
+    
+    WARNING_LIST=$(printf "• %s\n" "${WARNINGS[@]}")
+    HEALTHY_LIST=$(printf "• %s\n" "${HEALTHY_SERVICES[@]:0:10}")  # Первые 10
+    
+    TELEGRAM_MESSAGE="⚠️  <b>AVTOSVECHI - ПРЕДУПРЕЖДЕНИЯ</b>
+
+<b>Время:</b> $(date '+%d.%m.%Y %H:%M:%S')
+
+<b>🟡 Предупреждения ($TOTAL_WARNINGS):</b>
+$WARNING_LIST
+
+<b>✅ Работают ($TOTAL_HEALTHY):</b>
+$HEALTHY_LIST$([ $TOTAL_HEALTHY -gt 10 ] && echo "\n    ... и ещё $((TOTAL_HEALTHY - 10)) сервисов" || echo "")
+
+<b>📊 Состояние:</b>
+• Все системы в целом работают
+• Проверить при возможности
+• Логи: $LOG_FILE"
+    
+    send_telegram "$TELEGRAM_MESSAGE"
+    log "📱 Отправлено предупреждение в Telegram" "$YELLOW"
+    exit 0
+    
+else
+    # ВСЁ ОК - только daily report
+    log "✅ ВСЕ СИСТЕМЫ РАБОТАЮТ НОРМАЛЬНО" "$GREEN"
+    
+    # Ежедневный отчет в 8 утра
+    CURRENT_HOUR=$(date +%H)
+    if [ "$CURRENT_HOUR" = "08" ]; then
+        HEALTHY_LIST=$(printf "• %s\n" "${HEALTHY_SERVICES[@]:0:15}")
+        
+        TELEGRAM_MESSAGE="✅ <b>AVTOSVECHI - ЕЖЕДНЕВНЫЙ ОТЧЕТ</b>
+
+<b>Время:</b> $(date '+%d.%m.%Y %H:%M:%S')
+<b>День без инцидентов!</b> 🎉
+
+<b>📊 Статистика:</b>
+• Сервисов работает: $TOTAL_HEALTHY
+• Контейнеров: $RUNNING_CONTAINERS
+• Память: ${MEM_PERCENT}% (${MEM_USED}MB/${MEM_TOTAL}MB)
+• Нагрузка CPU: $CPU_LOAD
+• Использование диска: $DISK_USAGE
+
+<b>✅ Основные сервисы:</b>
+$HEALTHY_LIST$([ $TOTAL_HEALTHY -gt 15 ] && echo "\n    ... и ещё $((TOTAL_HEALTHY - 15)) сервисов" || echo "")
+
+<b>🌐 Доступные сервисы:</b>
+• Grafana: http://192.168.1.100:3000
+• Prometheus: http://192.168.1.100:9091
+• cAdvisor: http://192.168.1.100:8081
+
+<b>📈 Рекомендации:</b>
+1. Проверить логи за последние 24ч
+2. Обновить бекапы
+3. Проверить свободное место"
+        
+        send_telegram "$TELEGRAM_MESSAGE"
+        log "📱 Отправлен ежедневный отчет в Telegram" "$GREEN"
+    fi
+    
+    exit 0
+fi

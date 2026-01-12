@@ -1,0 +1,90 @@
+# ===== СИСТЕМНЫЕ ПАПКИ И ДАННЫЕ =====
+postgres/
+backups/
+logs/
+secrets/
+letsencrypt/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+.env.*
+
+# ===== ВРЕМЕННЫЕ ФАЙЛЫ И АРХИВЫ =====
+*.bak
+*.backup
+*.save
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
+
+# ===== ЛОГИ И ОТЧЕТЫ =====
+*.log
+healthcheck_*.log
+healthcheck_*.txt
+healthcheck_summary_*.txt
+autosvechi_logs.txt
+audit_report.txt
+docker_info.txt
+network.txt
+permissions_services.txt
+processes.txt
+project_configs.txt
+system_info.txt
+
+# ===== АРХИВЫ И СТАРЫЕ КОНФИГИ =====
+ARCHIVE-*
+*.tar.gz
+*.sql.gz
+server_audit_data.tar.gz
+docker-compose.yml.bak.*
+docker-compose.yml.backup
+docker-compose.yml.save
+docker-compose.yml.health.bak
+docker-compose.yml.nginxfix.bak
+docker-compose.yml.broken
+docker-compose.yml.working
+docker-compose.yml.production
+nginx.conf.bak.*
+MASTER_PLAN.md.bak.*
+
+# ===== ФАЙЛЫ IDE И СИСТЕМНЫЕ =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ===== СПЕЦИФИЧЕСКИЕ ФАЙЛЫ ПРОЕКТА =====
+api_test.txt
+STATUS-*.txt
+INVENTORY-STATUS.json
+token.txt
+KNOW_ISSUES.md
+PLAN.md
+INSTRUCTIONS.txt
+
+# ===== ИСКЛЮЧЕНИЯ: важные файлы, которые ДОЛЖНЫ быть в Git =====
+!README.md
+!README_RECOVERY.md
+!INSTRUCTIONS.md
+!MASTER_PLAN.md
+!RUNBOOK_DEPLOY.md
+!INVENTORY_API.md
+!INVENTORY_MODEL.md
+!docker-compose.yml
+!healthcheck.sh
+!monitor.sh
+!create_restore_point.sh
+!restore-from-tag.sh
+!setup_e2e_monitoring.sh
+!auto_test.sh
+!check-prod.sh
+
+# Явные исключения
+KNOWN_ISSUES.md
+_rollback/
+docker-compose-bot.yml

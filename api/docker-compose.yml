@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: autoshop_db
+    restart: always
+    environment:
+      POSTGRES_DB: autoshop
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secure_password_123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - autoshop_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d autoshop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: autoshop_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - autoshop_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./api
+    container_name: autoshop_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://admin:secure_password_123@postgres:5432/autoshop
+      REDIS_URL: redis://redis:6379
+      PYTHONPATH: /app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+    networks:
+      - autoshop_network
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  postgres_data:
+
+networks:
+  autoshop_network:
+    driver: bridge

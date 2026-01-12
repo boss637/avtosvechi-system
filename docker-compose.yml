@@ -1,0 +1,84 @@
+services:
+  api:
+    build:
+      context: ./api
+    container_name: autoshop_api
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://autoshop:password123@postgres:5432/autoshop_db
+      REDIS_URL: redis://redis:6379/0
+      TELEGRAM_CHAT_ID: "6838202455"
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      - /home/oleg/autoshop/api:/app
+      - /home/oleg/autoshop/secrets/telegram_bot_token.txt:/run/secrets/telegram_bot_token:ro
+  shell-agent:
+    build: ./shell_agent
+    container_name: shell-agent-1
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./playbooks:/app/playbooks:ro
+    environment:
+      - SHELL_AGENT_API_KEY=oleg-avtosvechi-2026-supersecret123
+    ports:
+      - "9999:8000"
+    restart: unless-stopped
+  nginx:
+    image: nginx:alpine
+    container_name: autoshop_nginx
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "8080:80"
+      - "443:443"
+    restart: unless-stopped
+    volumes:
+      - /home/oleg/autoshop/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /home/oleg/autoshop/logs/nginx:/var/log/nginx
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /home/oleg/autoshop/static:/srv/static:ro
+    networks:
+      - default
+      - monitoring_default
+  postgres:
+    image: postgres:16-alpine
+    container_name: autoshop_db
+    environment:
+      POSTGRES_DB: autoshop_db
+      POSTGRES_USER: autoshop
+      POSTGRES_PASSWORD: password123
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoshop -d autoshop_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+    volumes:
+      - autoshop_postgres_data:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    container_name: autoshop_redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+volumes:
+  autoshop_postgres_data: {}
+networks:
+  monitoring_default:
+    external: true

@@ -1,0 +1,29 @@
+groups:
+  - name: base
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target is down"
+          description: "Prometheus target {{ $labels.job }} / {{ $labels.instance }} is down."
+
+      - alert: HostDiskWillFillSoon
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space (<10% free)"
+          description: "Disk space low on {{ $labels.instance }} mount={{ $labels.mountpoint }}."
+
+      - alert: HostHighLoad
+        expr: node_load1 > (count without(cpu,mode) (node_cpu_seconds_total{mode="idle"}) )
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High load average"
+          description: "High load1 on {{ $labels.instance }}: {{ $value }}."

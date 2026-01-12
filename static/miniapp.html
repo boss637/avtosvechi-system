@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AUTOSHOP Mini App</title>
+</head>
+<body>
+  <h1>AUTOSHOP Mini App</h1>
+  <p>Если открыть это внутри Telegram, здесь будет доступна строка initData.</p>
+
+  <pre id="initData">(loading...)</pre>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const el = document.getElementById("initData");
+    if (!window.Telegram || !Telegram.WebApp) {
+      el.textContent = "Telegram.WebApp is not available. Open this page inside Telegram Mini App.";
+    } else {
+      Telegram.WebApp.ready();
+      el.textContent = Telegram.WebApp.initData || "(empty initData)";
+    }
+  </script>
+</body>
+</html>
