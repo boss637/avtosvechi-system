@@ -38,7 +38,7 @@ git add .
 echo "Создаем коммит с сообщением: '$COMMIT_MESSAGE'..."
 git commit -m "$COMMIT_MESSAGE"
 echo "Отправляем изменения в репозиторий (git push)..."
-git push origin main # Убедитесь, что 'main' - это ваша основная ветка
+git push origin master # Убедитесь, что .master. - это ваша основная ветка
 echo "[OK] Изменения успешно отправлены на GitHub."
 echo ""
 
