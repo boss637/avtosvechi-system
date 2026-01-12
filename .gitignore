@@ -1,4 +1,4 @@
-# ===== СИСТЕМНЫЕ ПАПКИ И ДАННЫЕ =====
+# СИСТЕМНЫЕ ПАПКИ (никогда не в Git)
 postgres/
 backups/
 logs/
@@ -12,7 +12,8 @@ __pycache__/
 .env
 .env.*
 
-# ===== ВРЕМЕННЫЕ ФАЙЛЫ И АРХИВЫ =====
+# АРХИВЫ И ВРЕМЕННЫЕ ФАЙЛЫ
+ARCHIVE-*
 *.bak
 *.backup
 *.save
@@ -21,8 +22,9 @@ __pycache__/
 *~
 *.swp
 *.swo
+_rollback/
 
-# ===== ЛОГИ И ОТЧЕТЫ =====
+# ЛОГИ И СНИМКИ СОСТОЯНИЯ
 *.log
 healthcheck_*.log
 healthcheck_*.txt
@@ -35,12 +37,12 @@ permissions_services.txt
 processes.txt
 project_configs.txt
 system_info.txt
-
-# ===== АРХИВЫ И СТАРЫЕ КОНФИГИ =====
-ARCHIVE-*
-*.tar.gz
-*.sql.gz
+STATUS-*.txt
+INVENTORY-STATUS.json
 server_audit_data.tar.gz
+token.txt
+
+# СТАРЫЕ КОНФИГИ
 docker-compose.yml.bak.*
 docker-compose.yml.backup
 docker-compose.yml.save
@@ -49,42 +51,22 @@ docker-compose.yml.nginxfix.bak
 docker-compose.yml.broken
 docker-compose.yml.working
 docker-compose.yml.production
+docker-compose-bot.yml
 nginx.conf.bak.*
 MASTER_PLAN.md.bak.*
 
-# ===== ФАЙЛЫ IDE И СИСТЕМНЫЕ =====
+# КОРНЕВЫЕ ФАЙЛЫ, КОТОРЫЕ НЕ НУЖНЫ В GIT
+/KNOWN_ISSUES.md
+/PLAN.md
+INSTRUCTIONS.txt
+api_test.txt
+inventory.py.backup
+
+# ФАЙЛЫ IDE
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 
-# ===== СПЕЦИФИЧЕСКИЕ ФАЙЛЫ ПРОЕКТА =====
-api_test.txt
-STATUS-*.txt
-INVENTORY-STATUS.json
-token.txt
-KNOW_ISSUES.md
-PLAN.md
-INSTRUCTIONS.txt
-
-# ===== ИСКЛЮЧЕНИЯ: важные файлы, которые ДОЛЖНЫ быть в Git =====
-!README.md
-!README_RECOVERY.md
-!INSTRUCTIONS.md
-!MASTER_PLAN.md
-!RUNBOOK_DEPLOY.md
-!INVENTORY_API.md
-!INVENTORY_MODEL.md
-!docker-compose.yml
-!healthcheck.sh
-!monitor.sh
-!create_restore_point.sh
-!restore-from-tag.sh
-!setup_e2e_monitoring.sh
-!auto_test.sh
-!check-prod.sh
-
-# Явные исключения
-KNOWN_ISSUES.md
-_rollback/
-docker-compose-bot.yml
+# WORKFLOW ФАЙЛЫ (требуют особого токена)
+/.github/workflows/
