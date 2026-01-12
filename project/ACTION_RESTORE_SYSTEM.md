@@ -11,7 +11,7 @@ cd ~/autoshop
 echo "🔍 ПОСЛЕДНИЕ 3 ТОЧКИ ВОССТАНОВЛЕНИЯ:"
 echo ""
 counter=1
-ls -lt backups/db_dump_*.sql.gz | head -3 | while read -r perm links user group size month day time filename; do
+ls -lth backups/db_dump_*.sql.gz | head -3 | while read -r perm links user group size month day time filename; do
   timestamp=$(echo "$filename" | grep -o '202[0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9]-[0-9][0-9]-[0-9][0-9]')
   human_date=$(echo "$month $day $time" | sed 's/://g')
   
