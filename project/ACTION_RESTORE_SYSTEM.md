@@ -10,16 +10,19 @@
 cd ~/autoshop
 echo "🔍 ПОСЛЕДНИЕ 3 ТОЧКИ ВОССТАНОВЛЕНИЯ:"
 echo ""
-ls -lt backups/db_dump_*.sql.gz | head -3 | nl -w1 -s'. ' | while read line; do
-  file=$(echo $line | awk '{print $2}')
-  timestamp=$(basename $file | grep -o '202[0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9]-[0-9][0-9]-[0-9][0-9]')
-  size=$(ls -lh $file | awk '{print $5}')
-  code_file="backups/code_snapshot_${timestamp}.tar.gz"
-  echo "$line"
-  echo "   📦 Размер: $size"
-  echo "   💾 Код: $(basename $code_file)"
+counter=1
+ls -lt backups/db_dump_*.sql.gz | head -3 | while read -r perm links user group size month day time filename; do
+  timestamp=$(echo "$filename" | grep -o '202[0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9]-[0-9][0-9]-[0-9][0-9]')
+  human_date=$(echo "$month $day $time" | sed 's/://g')
+  
+  echo "$counter. $filename"
+  echo "   📅 Создана: $human_date"
+  echo "   📦 Размер: ${size}B"
+  echo "   💾 Код: code_snapshot_${timestamp}.tar.gz"
   echo "   🏷️  Описание: Восстановление системы"
   echo ""
+  
+  ((counter++))
 done
 ```
 
