@@ -1,52 +1,70 @@
-#!/usr/bin/env bash
-# create_restore_point.sh - Создает полную точку восстановления (локально + Git)
+#!/bin/bash
 
-set -e # Прерывать выполнение при любой ошибке
+set -e  # Выход при ошибке
 
-# --- Проверка: убедимся, что передано сообщение для коммита ---
-if [ -z "$1" ]; then
-    echo "ОШИБКА: Пожалуйста, укажите сообщение для коммита."
-    echo "Пример: ./create_restore_point.sh \"Исправлена логика в API\""
-    exit 1
-fi
+# --- Конфигурация ---
+BACKUP_DIR="$HOME/autoshop/backups"
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+COMMIT_MESSAGE="${1:-"Automatic restore point created at $TIMESTAMP"}"
 
-COMMIT_MESSAGE="$1"
-TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
-BACKUP_DIR="backups"
-DB_FILE="${BACKUP_DIR}/db_dump_${TIMESTAMP}.sql.gz"
-CODE_ARCHIVE="${BACKUP_DIR}/code_snapshot_${TIMESTAMP}.tar.gz"
+# --- Проверка директории бэкапов ---
+mkdir -p "$BACKUP_DIR"
 
 echo "--- 1. Создание локальной точки восстановления ---"
 
-# --- Дамп Базы Данных ---
-echo "Создаем дамп базы данных PostgreSQL в ${DB_FILE}..."
-docker compose exec -T postgres pg_dump -U autoshop -d autoshop_db | gzip > "$DB_FILE"
+# 1.1 Дамп базы данных PostgreSQL
+DB_DUMP_FILE="$BACKUP_DIR/db_dump_$TIMESTAMP.sql.gz"
+echo "Создаем дамп базы данных PostgreSQL в ${DB_DUMP_FILE##*/}..."
+docker compose exec -T postgres pg_dump -U autoshop --clean --if-exists autoshop_db | gzip > "$DB_DUMP_FILE"
 echo "[OK] Дамп базы данных успешно создан."
 
-# --- Архив Кода (с sudo) ---
-echo "Создаем архив всего кода проекта в ${CODE_ARCHIVE}..."
-# ИСПРАВЛЕНО: Добавлено sudo для доступа ко всем файлам
-sudo tar --exclude="$BACKUP_DIR" -czf "$CODE_ARCHIVE" .
+# 1.2 Архив всего кода проекта
+CODE_ARCHIVE_FILE="$BACKUP_DIR/code_snapshot_$TIMESTAMP.tar.gz"
+echo "Создаем архив всего кода проекта в ${CODE_ARCHIVE_FILE##*/}..."
+sudo tar --exclude="$BACKUP_DIR" --exclude=.git -czf "$CODE_ARCHIVE_FILE" "$HOME/autoshop/" 2>/dev/null || {
+    echo "[ВНИМАНИЕ] Не удалось создать архив с sudo. Пробуем без него..."
+    tar --exclude="$BACKUP_DIR" --exclude=.git -czf "$CODE_ARCHIVE_FILE" "$HOME/autoshop/" 2>/dev/null
+}
 echo "[OK] Архив кода успешно создан."
 
 echo ""
 echo "--- 2. Создание точки восстановления кода на GitHub ---"
 
-# --- Коммит и Пуш в Git ---
+# 2.1 Добавление изменений в Git (если они есть)
 echo "Добавляем все изменения в Git..."
 git add .
-echo "Создаем коммит с сообщением: '$COMMIT_MESSAGE'..."
-git commit -m "$COMMIT_MESSAGE"
-echo "Отправляем изменения в репозиторий (git push)..."
-git push origin master # Убедитесь, что .master. - это ваша основная ветка
-echo "[OK] Изменения успешно отправлены на GitHub."
+
+# 2.2 Создание коммита (только если есть что коммитить)
+if ! git diff-index --quiet HEAD --; then
+    echo "Создаем коммит с сообщением: '$COMMIT_MESSAGE'..."
+    git commit -m "$COMMIT_MESSAGE"
+    COMMIT_CREATED=true
+else
+    echo "Нет изменений в отслеживаемых файлах для коммита."
+    COMMIT_CREATED=false
+fi
+
+# 2.3 Отправка на GitHub с автоматическим разрешением конфликтов
+if [ "$COMMIT_CREATED" = true ]; then
+    echo "Отправляем изменения в репозиторий (git push)..."
+    
+    # Пытаемся отправить. Если не получилось, синхронизируемся и пробуем снова.
+    if ! git push origin master 2>/dev/null; then
+        echo "Обнаружены новые изменения на GitHub. Выполняем синхронизацию (git pull --rebase)..."
+        git pull --rebase origin master
+        echo "Повторная отправка изменений после синхронизации..."
+        git push origin master
+    fi
+    echo "[OK] Изменения успешно отправлены на GitHub."
+else
+    echo "[OK] Локальные бэкапы созданы. Отправка в GitHub не требовалась (нет новых коммитов)."
+fi
+
 echo ""
-
-echo "---"
-echo "✅ ТОЧКА ВОССТАНОВЛЕНИЯ УСПЕШНО СОЗДАНА! ---"
-echo "  - Локальный бэкап БД: ${DB_FILE}"
-echo "  - Локальный архив кода: ${CODE_ARCHIVE}"
-echo "  - Коммит на GitHub: '$COMMIT_MESSAGE'"
-echo "---"
-
-exit 0
+echo "--- Готово ---"
+echo "Точка восстановления создана:"
+echo "  • База данных: $DB_DUMP_FILE"
+echo "  • Код проекта: $CODE_ARCHIVE_FILE"
+if [ "$COMMIT_CREATED" = true ]; then
+    echo "  • Коммит Git: создан и отправлен"
+fi
