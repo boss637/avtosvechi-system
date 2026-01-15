@@ -1,0 +1,61 @@
+#!/bin/bash
+# УЛУЧШЕННЫЙ create_restore_point.sh
+# Создает точку восстановления в структурированной папке.
+
+set -euo pipefail
+
+# --- Конфигурация ---
+BACKUP_ROOT="/home/oleg/autoshop/backups"
+DB_NAME="avtosvechi" # Укажите ваше имя БД
+# ---
+
+echo "=== Создание структурированной точки восстановления ==="
+
+# 1. Запрос описания
+read -p "Введите описание точки восстановления: " DESCRIPTION
+DESCRIPTION=$(echo "$DESCRIPTION" | tr ' ' '_' | tr -cd '[:alnum:]_-') # Делаем имя безопасным
+BACKUP_DIR="$BACKUP_ROOT/$(date +%Y-%m-%d)_${DESCRIPTION}"
+
+# 2. Создание папки
+echo "Создаю папку: $BACKUP_DIR"
+mkdir -p "$BACKUP_DIR"
+
+# 3. Дамп базы данных
+DB_FILE="$BACKUP_DIR/db_dump.sql.gz"
+echo "Создаю дамп БД -> $DB_FILE"
+docker exec avtosvechi-db-1 pg_dump -U postgres "$DB_NAME" | gzip > "$DB_FILE"
+
+# 4. Архив кода (исключая саму папку backups)
+CODE_FILE="$BACKUP_DIR/code_snapshot.tar.gz"
+echo "Архивирую код -> $CODE_FILE"
+tar --exclude="$BACKUP_ROOT" -czf "$CODE_FILE" .
+
+# 5. Создание README
+README_FILE="$BACKUP_DIR/README.md"
+cat > "$README_FILE" << README_EOF
+# Точка восстановления: ${DESCRIPTION}
+**Дата создания:** $(date)
+**Папка:** $(basename "$BACKUP_DIR")
+
+## Описание
+${DESCRIPTION}
+
+## Содержимое точки
+1. \`db_dump.sql.gz\` — дамп базы данных PostgreSQL.
+2. \`code_snapshot.tar.gz\` — архив исходного кода проекта.
+
+## Для восстановления
+1. Распаковать архив кода: \`tar -xzf code_snapshot.tar.gz -C /target/path\`
+2. Восстановить БД: \`gunzip -c db_dump.sql.gz | docker exec -i avtosvechi-db-1 psql -U postgres\`
+README_EOF
+
+# 6. Обновление ссылки 'latest'
+LINK_PATH="$BACKUP_ROOT/latest"
+ln -sfn "$(basename "$BACKUP_DIR")" "$LINK_PATH"
+echo "Ссылка 'latest' обновлена -> $(basename "$BACKUP_DIR")"
+
+# 7. Итог
+echo "✅ Точка восстановления успешно создана в: $BACKUP_DIR"
+echo "   - Дамп БД:   $(basename "$DB_FILE")"
+echo "   - Архив кода: $(basename "$CODE_FILE")"
+echo "   - README:     $(basename "$README_FILE")"

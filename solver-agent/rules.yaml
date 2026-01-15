@@ -1,0 +1,92 @@
+# Правила для Solver Agent
+# Формат: список правил с условиями и действиями
+
+rules:
+  - id: "rule_001"
+    name: "Автоматический перезапуск API при частых 500 ошибках"
+    description: "Если API возвращает 500 ошибки чаще 3 раз за 5 минут - перезапустить"
+    condition:
+      service: "api"
+      error_type: "http_500"
+      count_threshold: 3
+      time_window_minutes: 5
+    action:
+      type: "restart_service"
+      service: "api"
+      command: "docker restart autoshop_api"
+      timeout_seconds: 30
+    priority: "high"
+    enabled: true
+    requires_confirmation: false
+    confidence_threshold: 0.8
+
+  - id: "rule_002"
+    name: "Очистка кэша при медленном ответе API"
+    description: "Если среднее время ответа API превышает 2 секунды - очистить кэш"
+    condition:
+      service: "api"
+      metric: "response_time"
+      threshold: 2.0
+      time_window_minutes: 10
+    action:
+      type: "execute_command"
+      command: "docker exec autoshop_api redis-cli FLUSHALL"
+      description: "Очистка кэша Redis"
+    priority: "medium"
+    enabled: true
+    requires_confirmation: true
+    confidence_threshold: 0.7
+
+  - id: "rule_003"
+    name: "Перезапуск зависшего shell-agent"
+    description: "Если shell-agent не отвечает более 1 минуты - перезапустить"
+    condition:
+      service: "shell-agent"
+      error_type: "connection_refused"
+      count_threshold: 1
+      time_window_minutes: 2
+    action:
+      type: "restart_service"
+      service: "shell-agent"
+      command: "docker restart autoshop_shell_agent"
+    priority: "high"
+    enabled: true
+    requires_confirmation: false
+    confidence_threshold: 0.9
+
+  - id: "rule_004"
+    name: "Уведомление о нехватке дискового пространства"
+    description: "Если свободного места меньше 10% - отправить уведомление"
+    condition:
+      metric: "disk_usage"
+      threshold_percent: 90
+    action:
+      type: "send_notification"
+      channel: "telegram"
+      message: "⚠️ Внимание! Свободного места на диске меньше 10%"
+    priority: "critical"
+    enabled: true
+    requires_confirmation: false
+    confidence_threshold: 0.95
+
+# Шаблоны для создания новых правил
+templates:
+  restart_service_template:
+    condition:
+      service: "{service_name}"
+      error_type: "{error_pattern}"
+      count_threshold: 3
+      time_window_minutes: 5
+    action:
+      type: "restart_service"
+      service: "{service_name}"
+      command: "docker restart {container_name}"
+  
+  execute_command_template:
+    condition:
+      service: "{service_name}"
+      error_type: "{error_pattern}"
+    action:
+      type: "execute_command"
+      command: "{command_to_execute}"
+      description: "{action_description}"
