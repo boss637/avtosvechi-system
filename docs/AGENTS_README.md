@@ -171,11 +171,9 @@ avtosvechi-system/
 
 ### Полная документация:
 
-- 🏭 **Промышленный стандарт Триады**
-
-- 🚀 **Руководство по развертыванию**
-
-- 🗺️ **Основной план проекта**
+- 🏭 **[Промышленный стандарт Триады](TRINITY_AGENTS_PLAN_FULL.md)**
+- 🚀 **[Руководство по развертыванию](DEPLOYMENT_GUIDE.md)**
+- 🗺️ **[Основной план проекта](../project/PLAN.md)**
 
 ### Полезные ссылки:
 
@@ -240,88 +238,4 @@ avtosvechi-system/
 
 ```text
 return new_content
-```
-
-def write_file(filename, content):
-"""Запись файла"""
-try:
-with open(filename, 'w', encoding='utf-8') as f:
-f.write(content)
-print(f"✅ Файл {filename} успешно создан")
-return True
-except Exception as e:
-print(f"❌ Ошибка при записи файла {filename}: {e}")
-return False
-
-def main():
-"""Основная функция"""
-print("=== Преобразование документации в README для агентов ===")
-
-```text
-# Определяем пути
-source_file = "docs/TRINITY_AGENTS_PLAN.md"
-target_file = "docs/AGENTS_README.md"
-backup_file = "docs/TRINITY_AGENTS_PLAN.md.backup"
-
-# 1. Проверяем исходный файл
-print(f"\n1. Проверяем исходный файл: {source_file}")
-if not os.path.exists(source_file):
-    print(f"   ⚠️ Исходный файл не найден. Создаем новый README с нуля.")
-    source_content = "# План: «Триада — Промышленный Стандарт» (v.5.0)\n\n## Архитектура:\n"
-else:
-    source_content = read_file(source_file)
-    if source_content:
-        print(f"   ✅ Исходный файл прочитан ({len(source_content)} символов)")
-
-# 2. Создаем новый README
-print(f"\n2. Создаем новый README: {target_file}")
-new_content = create_agents_readme(source_content)
-
-# 3. Записываем новый файл
-if write_file(target_file, new_content):
-    print(f"   ✅ README создан успешно")
-    
-    # 4. Переименовываем исходный файл через git
-    if os.path.exists(source_file):
-        print(f"\n3. Переименовываем исходный файл через git...")
-        os.system(f"git mv {source_file} {target_file} 2>/dev/null || echo 'Git mv не удался'")
-        
-        # Если git mv не сработал, делаем backup
-        if os.path.exists(source_file):
-            os.rename(source_file, backup_file)
-            print(f"   ✅ Исходный файл перемещен в backup: {backup_file}")
-    
-    print(f"\n🎉 ПРЕОБРАЗОВАНИЕ ЗАВЕРШЕНО!")
-    print(f"   📄 Новый файл: {target_file}")
-    print(f"   📊 Размер: {len(new_content)} символов")
-    
-    # Показываем первые 5 строк
-    print(f"\n📋 Первые 5 строк нового файла:")
-    print("-" * 50)
-    for i, line in enumerate(new_content.split('\n')[:5], 1):
-        print(f"{i}: {line}")
-    print("-" * 50)
-    
-    return True
-else:
-    return False
-```
-
-if name == "main":
-success = main()
-sys.exit(0 if success else 1)
-EOF
-
-echo "" &&
-echo "✅ Скрипт transform_to_readme.py создан" &&
-echo "" &&
-echo "4. Даем права на выполнение..." &&
-chmod +x transform_to_readme.py &&
-echo "" &&
-echo "5. Запускаем скрипт..." &&
-python3 transform_to_readme.py
-
-```text
-
-После выполнения команды, пожалуйста, предоставьте вывод терминала.
 ```
