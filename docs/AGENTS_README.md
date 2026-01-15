@@ -233,15 +233,15 @@ avtosvechi-system/
 
 - **Документация для новых функций**
 
-text
 > Примечание: Это README-версия документации.
 > Для полной информации см. TRINITY_AGENTS_PLAN_FULL.md
 
-Система находится в активной разработке. Последнее обновление: {now}
-"""
+*Система находится в активной разработке. Последнее обновление: {now}*
 
-text
+```text
 return new_content
+```
+
 def write_file(filename, content):
 """Запись файла"""
 try:
@@ -257,7 +257,7 @@ def main():
 """Основная функция"""
 print("=== Преобразование документации в README для агентов ===")
 
-text
+```text
 # Определяем пути
 source_file = "docs/TRINITY_AGENTS_PLAN.md"
 target_file = "docs/AGENTS_README.md"
@@ -305,6 +305,8 @@ if write_file(target_file, new_content):
     return True
 else:
     return False
+```
+
 if name == "main":
 success = main()
 sys.exit(0 if success else 1)
@@ -319,6 +321,7 @@ echo "" &&
 echo "5. Запускаем скрипт..." &&
 python3 transform_to_readme.py
 
-text
+```text
 
 После выполнения команды, пожалуйста, предоставьте вывод терминала.
+```
