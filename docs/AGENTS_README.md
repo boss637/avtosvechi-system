@@ -81,4 +81,39 @@ docker-compose up -d watcher executor solver
 
 # Проверка статуса
 docker-compose ps
+```
 
+### Проверка работы:
+```bash
+# Watcher (метрики)
+curl http://localhost:9090/metrics
+
+# Executor (здоровье)
+curl http://localhost:8000/health
+
+# Solver (статус)
+curl http://localhost:8080/status
+```
+
+# 🔧 КОНФИГУРАЦИЯ
+
+##Основные файлы конфигурации**:
+
+1. **.env — переменные окружения**
+
+2. **docker-compose.yml — Docker конфигурация**
+
+3. **watcher-agent/config.yaml — конфиг Watcher**
+
+4. **executor-agent/config.py — конфиг Executor**
+
+5. **solver-agent/rules.yaml — правила Solver**
+
+## Ключевые переменные:
+
+```env
+TELEGRAM_TOKEN=your_bot_token
+DATABASE_URL=postgresql://user:pass@postgres:5432/autoshop
+REDIS_URL=redis://redis:6379/0
+LOG_LEVEL=INFO
+```
