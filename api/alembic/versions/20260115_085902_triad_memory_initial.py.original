@@ -70,7 +70,7 @@ def upgrade() -> None:
     )
     
     # Индексы для knowledge_base
-    op.create_index('idx_knowledge_base_error_pattern', 'knowledge_base', ['error_pattern'], unique=False)
+    op.create_index('idx_knowledge_base_error_pattern', 'knowledge_base', ['error_pattern'], unique=False, postgresql_using='gin')
     op.create_index('idx_knowledge_base_playbook_id', 'knowledge_base', ['playbook_id'], unique=False)
     op.create_index('idx_knowledge_base_tags', 'knowledge_base', ['tags'], unique=False, postgresql_using='gin')
     op.create_index('idx_knowledge_base_confidence', 'knowledge_base', ['confidence_score'], unique=False)
